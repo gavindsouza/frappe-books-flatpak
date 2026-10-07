@@ -1,0 +1,30 @@
+# Build output
+build/
+repo/
+dist/
+target/
+*.flatpak
+
+# Node / JS
+node_modules/
+.npm/
+npm-debug.log*
+
+# Python / uv / bench
+.venv/
+__pycache__/
+*.pyc
+
+# Nix / direnv
+.direnv/
+result
+result-*
+
+# Local environment (never commit local overrides or secrets)
+.env
+.env.local
+.env.*.local
+
+# Logs / OS
+*.log
+.DS_Store
