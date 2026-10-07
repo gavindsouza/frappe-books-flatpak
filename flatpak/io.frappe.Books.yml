@@ -1,0 +1,49 @@
+app-id: io.frappe.Books
+runtime: org.gnome.Platform
+runtime-version: "48"
+sdk: org.gnome.Sdk
+command: books-app
+
+finish-args:
+  # Pure local application: loopback only, no external network permission.
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  - --talk-name=org.freedesktop.portal.FileChooser
+  - --talk-name=org.freedesktop.portal.OpenURI
+  - --talk-name=org.freedesktop.portal.NetworkMonitor
+
+modules:
+  # Prebuilt bench backend (Python runtime, bench workspace, Redis) assembled
+  # by scripts/build-backend.sh into dist/backend.
+  - name: backend
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: ../dist/backend
+    build-commands:
+      - cp -a ./. /app/
+
+  # Prebuilt Tauri desktop shell assembled by scripts/build-app.sh.
+  - name: books-app
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: ../dist/books-app
+    build-commands:
+      - install -Dm755 books-app /app/bin/books-app
+
+  - name: metadata
+    buildsystem: simple
+    sources:
+      - type: file
+        path: io.frappe.Books.desktop
+      - type: file
+        path: io.frappe.Books.metainfo.xml
+      - type: file
+        path: ../tauri/books-app/src-tauri/icons/128x128.png
+    build-commands:
+      - install -Dm644 io.frappe.Books.desktop /app/share/applications/io.frappe.Books.desktop
+      - install -Dm644 io.frappe.Books.metainfo.xml /app/share/metainfo/io.frappe.Books.metainfo.xml
+      - install -Dm644 128x128.png /app/share/icons/hicolor/128x128/apps/io.frappe.Books.png

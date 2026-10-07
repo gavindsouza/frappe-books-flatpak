@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Frappe Books
+Comment=Simple desktop accounting
+Exec=books-app
+Icon=io.frappe.Books
+Terminal=false
+Type=Application
+Categories=Office;Finance;

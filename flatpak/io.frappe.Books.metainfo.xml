@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.frappe.Books</id>
+  <name>Frappe Books</name>
+  <summary>Simple desktop accounting</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+  <description>
+    <p>
+      Frappe Books is free accounting software for small businesses, bundled
+      with a local Frappe backend and a single-file SQLite database.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.frappe.Books.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+</component>
