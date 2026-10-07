@@ -1,0 +1,81 @@
+name: Build Flatpak
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # Compile the pieces on a normal runner where the network and toolchains are
+  # available. The Flatpak job then only copies prebuilt artifacts into /app,
+  # so nothing has to be compiled inside the Flatpak build sandbox.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libssl-dev \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev librsvg2-dev \
+            redis-server
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install yarn
+        run: npm install -g yarn@1.22.22
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build shell
+        run: ./scripts/build-app.sh
+
+      - name: Build backend
+        run: ./scripts/build-backend.sh
+
+      - name: Package artifacts
+        run: tar -C dist -cf dist.tar backend books-app
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist.tar
+
+  flatpak:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: .
+
+      - name: Unpack artifacts
+        run: mkdir -p dist && tar -C dist -xf dist.tar
+
+      - name: Build Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: io.frappe.Books.flatpak
+          manifest-path: flatpak/io.frappe.Books.yml
