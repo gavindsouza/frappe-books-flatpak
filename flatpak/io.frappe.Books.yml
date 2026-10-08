@@ -4,6 +4,13 @@ runtime-version: "48"
 sdk: org.gnome.Sdk
 command: books-app
 
+# Never strip or extract debug info: any ELF section removal corrupts the
+# bundled CPython (python-build-standalone) binaries, which then fail to load
+# with "no version information available". Set globally and per-module.
+build-options:
+  strip: false
+  no-debuginfo: true
+
 finish-args:
   # Pure local application: loopback only, no external network permission.
   - --socket=wayland
