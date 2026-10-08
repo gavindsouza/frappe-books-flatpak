@@ -12,6 +12,18 @@ database) or as a thin client to a hosted Frappe server.
 > Frappe/bench environment, so the same method can bring other Frappe-framework
 > apps to the desktop in the same way.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Sales invoices](docs/screenshots/sales-invoices.png) |
+| ![Sales invoice](docs/screenshots/invoice-detail.png) | ![Profit and Loss](docs/screenshots/profit-and-loss.png) |
+| ![Customers](docs/screenshots/customers.png) | ![Items](docs/screenshots/items.png) |
+
+The screenshots use the demo data in
+[`scripts/demo-data.py`](scripts/demo-data.py); load it with
+[`scripts/load-demo-data.sh`](scripts/load-demo-data.sh).
+
 ## Install
 
 Download `io.frappe.Books.flatpak` from the
@@ -115,6 +127,7 @@ shell (`nix develop`, or direnv via `.envrc`) provides all of them. See
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the shell and backend fit together
 - [docs/CONFIGURATION.md](docs/CONFIGURATION.md) — every environment variable
 - [docs/BUILD.md](docs/BUILD.md) — building and packaging
+- [scripts/demo-data.py](scripts/demo-data.py) — seed a demo company and data
 - [flatpak/READINESS_CHECKLIST.md](flatpak/READINESS_CHECKLIST.md) — known gaps
 
 ## Status
