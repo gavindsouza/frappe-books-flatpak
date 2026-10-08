@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   # Compile the pieces on a normal runner where the network and toolchains are
   # available. The Flatpak job then only copies prebuilt artifacts into /app,
@@ -54,6 +57,7 @@ jobs:
         with:
           name: dist
           path: dist.tar
+          retention-days: 3
 
   flatpak:
     needs: build
@@ -79,3 +83,47 @@ jobs:
         with:
           bundle: io.frappe.Books.flatpak
           manifest-path: flatpak/io.frappe.Books.yml
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak
+          path: io.frappe.Books.flatpak
+          retention-days: 30
+
+  # Publish a downloadable release on every push to main.
+  release:
+    needs: flatpak
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: flatpak
+          path: .
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: Frappe Books v0.1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          files: io.frappe.Books.flatpak
+          make_latest: true
+          body: |
+            Frappe Books as a self-contained desktop app, built from
+            `${{ github.sha }}`.
+
+            ### Install
+
+            ```bash
+            flatpak install --user ./io.frappe.Books.flatpak
+            flatpak run io.frappe.Books
+            ```
+
+            The app runs entirely locally: a bundled Frappe backend, a
+            single-file SQLite database and Redis, with no network access.
+            See the README for details.
