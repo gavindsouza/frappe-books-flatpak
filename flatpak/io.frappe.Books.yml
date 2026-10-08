@@ -19,6 +19,11 @@ modules:
   # by scripts/build-backend.sh into dist/backend.
   - name: backend
     buildsystem: simple
+    # Do not strip: eu-strip removes the ELF version sections from the bundled
+    # CPython libraries, after which the interpreter fails to load.
+    build-options:
+      strip: false
+      no-debuginfo: true
     sources:
       - type: dir
         path: ../dist/backend
