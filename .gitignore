@@ -4,6 +4,7 @@ repo/
 dist/
 target/
 *.flatpak
+tauri/books-app/src-tauri/gen/
 
 # Node / JS
 node_modules/
