@@ -25,8 +25,12 @@ flatpak run io.frappe.Books
 
 You can also just open the downloaded file from your file manager.
 
-On first launch the app creates its local site and opens Books directly — no
-login and no setup wizard.
+Installing pulls the `org.gnome.Platform//48` runtime from Flathub, so make sure
+the Flathub remote is configured (`flatpak remote-add --if-not-exists flathub
+https://flathub.org/repo/flathub.flatpakrepo`).
+
+On first launch the app seeds a writable copy of its bundled backend, creates
+its local site, and opens Books directly — no login and no setup wizard.
 
 ## What's inside
 
@@ -44,7 +48,7 @@ The Flatpak requests no network permission; everything runs on localhost.
 The site lives in the app's data directory:
 
 ```
-~/.var/app/io.frappe.Books/data/
+~/.var/app/io.frappe.Books/data/io.frappe.Books/bench/sites/site1
 ```
 
 It is a self-contained folder, so copying it is a complete backup. The app can
