@@ -35,6 +35,8 @@ Everything is driven by environment variables. Copy `.env.example` to `.env`
 |----------|---------|---------|
 | `BOOKS_DIST_DIR` | `dist` | Build output directory |
 | `BOOKS_APP_PREFIX` | `/app` | Prefix the backend is built under; must match the Flatpak runtime path |
+| `BOOKS_PYTHON_VERSION` | `3.14.7` | Exact Python version installed by uv (pin it — a "latest patch" can be a broken build) |
+| `BOOKS_REDIS_VERSION` | `7.4.2` | Redis version built from source into the bundle |
 
 ## Runtime overrides
 
@@ -43,7 +45,8 @@ the bundle layout):
 
 | Variable | Default |
 |----------|---------|
-| `BOOKS_BENCH_DIR` | `/app/books/bench` |
+| `BOOKS_BENCH_SRC` | `/app/books/bench` |
+| `BOOKS_BENCH_DIR` | *(unset — a writable workspace is seeded in the app data dir)* |
 | `BOOKS_BENCH_BIN` | `bench` |
 | `BOOKS_REDIS_BIN` | `/app/bin/redis-server` |
 | `BOOKS_ADMIN_USER` | `Administrator` |
