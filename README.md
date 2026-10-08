@@ -1,55 +1,106 @@
-# Frappe Books Flatpak
+# Frappe Books Desktop
 
-Desktop [Flatpak](https://flatpak.org) packaging for
-[Frappe Books](https://github.com/frappe/frappe-books).
+[![Build Flatpak](https://github.com/gavindsouza/frappe-books-flatpak/actions/workflows/build.yml/badge.svg)](https://github.com/gavindsouza/frappe-books-flatpak/actions/workflows/build.yml)
 
-A Tauri (WebKitGTK) shell supervises a bundled local backend — Python 3.14,
-Frappe (`develop`), the `frappe_books` app and a single-file SQLite database —
-plus a private Redis for cache/session. Everything runs locally: no WASM, no
-external services. First launch creates the site and logs in automatically, and
-the UI is the Books single-page app.
+Frappe Books as a self-contained Linux desktop app. The modern Books interface
+— built on [Frappe](https://github.com/frappe/frappe),
+[frappe-ui](https://github.com/frappe/frappe-ui) and friends — runs locally
+inside a Flatpak, with its own bundled backend and a single-file SQLite
+database. No server to set up, no network required.
 
-## Repository layout
+> This is a packaging approach, not a fork. A Tauri shell supervises a bundled
+> Frappe/bench environment, so the same method can bring other Frappe-framework
+> apps to the desktop in the same way.
 
-| Path | Purpose |
-|------|---------|
-| `tauri/books-app` | Tauri shell: spawns Redis + `bench serve`, auto-login, process supervision, DB export/import |
-| `flatpak/` | Flatpak manifest and app metadata |
-| `scripts/` | `build-app.sh`, `build-backend.sh`, `build-flatpak.sh` |
-| `.github/workflows/build.yml` | CI: build the pieces, then package the Flatpak |
+## Install
 
-## Configuration
-
-All build inputs come from the environment — there are no machine-specific
-paths in the tree.
+Download `io.frappe.Books.flatpak` from the
+[latest release](https://github.com/gavindsouza/frappe-books-flatpak/releases/latest)
+and install it:
 
 ```bash
-cp .env.example .env   # then edit
+flatpak install --user ./io.frappe.Books.flatpak
+flatpak run io.frappe.Books
 ```
 
-`.envrc` (direnv) loads `.env` and enters the Nix dev shell; `nix develop`
-works on its own too. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for
-every variable.
+You can also just open the downloaded file from your file manager.
 
-## Build
+On first launch the app creates its local site and opens Books directly — no
+login and no setup wizard.
 
-Locally (needs `flatpak-builder`, `uv`, Node, Rust and `redis-server` — the Nix
-dev shell provides them):
+## What's inside
+
+- **Shell** — a Tauri (Rust/WebKitGTK) window that starts the backend, waits
+  for it to be ready and shuts it down cleanly on exit.
+- **Backend** — a bundled Frappe `develop` on Python 3.14 with the
+  `frappe_books` app, served over loopback.
+- **Database** — SQLite, a single file per site (plus a search index).
+- **Cache** — a private Redis, bundled and started with the app.
+
+The Flatpak requests no network permission; everything runs on localhost.
+
+## Your data
+
+The site lives in the app's data directory:
+
+```
+~/.var/app/io.frappe.Books/data/
+```
+
+It is a self-contained folder, so copying it is a complete backup. The app can
+also export and import the database through the desktop file chooser.
+
+### More than one device
+
+The database is a plain SQLite file, but SQLite is **not** safe on network
+filesystems (S3, EFS, NFS) with more than one writer — file locking is
+unreliable there and concurrent writes can corrupt the database. For a
+proof-of-concept you can sync the file between devices while the app is closed,
+or run a single backend and point several app shells at it. Genuine
+multi-device, multi-writer use needs a client/server database (Postgres or
+MariaDB), which this packaging does not provide.
+
+## Updating
+
+Every push to `main` publishes a new release. Download the newer bundle and
+install it the same way — Flatpak upgrades in place and your data is preserved:
+
+```bash
+flatpak install --user ./io.frappe.Books.flatpak
+```
+
+## Uninstall
+
+```bash
+flatpak uninstall io.frappe.Books
+```
+
+Add `--delete-data` to remove the database as well.
+
+## Building from source
 
 ```bash
 ./scripts/build-flatpak.sh
 ```
 
-The scripts also run on their own: `build-app.sh` produces `dist/books-app`,
-`build-backend.sh` produces `dist/backend`.
+This needs `flatpak-builder`, `uv`, Node, Rust and `redis-server`; the Nix dev
+shell (`nix develop`, or direnv via `.envrc`) provides all of them. See
+[docs/BUILD.md](docs/BUILD.md) for the build layout and CI.
 
-The backend is built under `BOOKS_APP_PREFIX` (default `/app`) so the absolute
-paths inside the Python virtualenv match the paths used inside the Flatpak
-sandbox. CI relies on this; change the prefix only if you know why.
+## Learn more
 
-## Install
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the shell and backend fit together
+- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) — every environment variable
+- [docs/BUILD.md](docs/BUILD.md) — building and packaging
+- [flatpak/READINESS_CHECKLIST.md](flatpak/READINESS_CHECKLIST.md) — known gaps
 
-```bash
-flatpak install --user io.frappe.Books.flatpak
-flatpak run io.frappe.Books
-```
+## Status
+
+Frappe's SQLite support is marked experimental — fine for a single-user
+desktop app. The runtime is pinned to `org.gnome.Platform` 48 (EOL; a bump is
+tracked), and a transitive `glib` advisory in Tauri's gtk-rs 0.18 stack has no
+upstream fix yet.
+
+## License
+
+AGPL-3.0-or-later, matching [Frappe Books](https://github.com/frappe/frappe-books).
