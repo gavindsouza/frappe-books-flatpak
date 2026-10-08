@@ -11,7 +11,6 @@ Everything is driven by environment variables. Copy `.env.example` to `.env`
 | `BOOKS_APP_REF` | *(empty)* | Optional branch/tag/commit to pin the app |
 | `BOOKS_APP_SOURCE_DIR` | *(empty)* | Use an existing local checkout instead of cloning |
 | `BOOKS_FRAPPE_BRANCH` | `develop` | Frappe branch used by `bench init` |
-| `BOOKS_PYTHON_VERSION` | `3.14` | Python version installed by `uv` |
 
 ## Site and server
 
@@ -51,3 +50,29 @@ the bundle layout):
 | `BOOKS_REDIS_BIN` | `/app/bin/redis-server` |
 | `BOOKS_ADMIN_USER` | `Administrator` |
 | `BOOKS_ADMIN_PASSWORD` | `admin` |
+| `BOOKS_SERVER_URL` | *(unset — local mode)* |
+
+## Connection mode
+
+The shell runs in one of two modes, decided at launch:
+
+- **Local** (default) — seeds a writable bench workspace, starts Redis and
+  `bench serve` against the bundled SQLite site, and loads
+  `http://127.0.0.1:8020/books`.
+- **Remote** — a thin client: no local backend is started; the window loads
+  `<server_url>/books` from a hosted Frappe site (which may use SQLite,
+  MariaDB or PostgreSQL behind it). You log in there normally.
+
+Remote mode is selected by the first of these that is set:
+
+1. `BOOKS_SERVER_URL` environment variable.
+2. `config.json` with a `server_url` key, read from the app config dir
+   (`~/.var/app/io.frappe.Books/config/io.frappe.Books/config.json`) or
+   `~/.var/app/io.frappe.Books/config.json`.
+
+Example `config.json`:
+
+```json
+{ "server_url": "https://books.example.com" }
+```
+

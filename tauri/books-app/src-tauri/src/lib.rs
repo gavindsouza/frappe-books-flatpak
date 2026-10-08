@@ -439,6 +439,44 @@ fn ensure_workspace(data_dir: &Path, logger: &Logger) -> PathBuf {
     ws
 }
 
+/// Resolve a remote Frappe server URL. Precedence: the BOOKS_SERVER_URL
+/// environment variable, then a config.json with a "server_url" key (looked up
+/// in the app config dir and in ~/.var/app/io.frappe.Books/config.json). When
+/// set, the shell runs as a thin client: it skips the bundled backend and
+/// loads <server_url>/books.
+fn remote_server_url(app: &tauri::App) -> Option<String> {
+    if let Ok(url) = std::env::var("BOOKS_SERVER_URL") {
+        let url = url.trim().to_string();
+        if !url.is_empty() {
+            return Some(url);
+        }
+    }
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(dir) = app.path().app_config_dir() {
+        candidates.push(dir.join("config.json"));
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        candidates.push(PathBuf::from(home).join(".var/app/io.frappe.Books/config.json"));
+    }
+
+    for path in candidates {
+        let Ok(text) = fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
+            continue;
+        };
+        if let Some(url) = json.get("server_url").and_then(|v| v.as_str()) {
+            let url = url.trim();
+            if !url.is_empty() {
+                return Some(url.to_string());
+            }
+        }
+    }
+    None
+}
+
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let log_dir = app.path().app_log_dir()?;
     fs::create_dir_all(&log_dir)?;
@@ -447,6 +485,27 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let launcher = Launcher::new(logger.clone());
     launcher.watch_children();
     app.manage(launcher.clone());
+
+    // Remote mode: act as a thin client to a hosted Frappe site and skip the
+    // bundled backend entirely.
+    if let Some(base) = remote_server_url(app) {
+        let base = base.trim_end_matches('/').to_string();
+        let url = Url::parse(&format!("{base}/books"))?;
+        logger.log(&format!("remote mode: loading {url}"));
+        launcher.set_phase("opening window (remote)");
+        let builder = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::External(url))
+            .title("Frappe Books")
+            .inner_size(1200.0, 900.0)
+            .min_inner_size(800.0, 600.0);
+        if let Err(e) = builder.build() {
+            logger.log(&format!("window: failed to open: {e}"));
+            return Err(e.into());
+        }
+        logger.log("window: opened (remote)");
+        launcher.status.lock().unwrap().phase = "window-open".into();
+        logger.log("=== launcher setup complete (remote) ===");
+        return Ok(());
+    }
 
     // The bundled bench under /app is immutable, so run it from a writable
     // workspace in the app data dir (seeded on first run).

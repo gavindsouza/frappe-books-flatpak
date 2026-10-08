@@ -30,6 +30,15 @@ Python runtime                          /app/python  (uv, python-build-standalon
 - **Cache/session** — a private Redis. Frappe requires Redis even on SQLite,
   so it is bundled rather than assumed on the host.
 
+## Modes
+
+The shell runs in one of two modes, chosen at launch:
+
+- **Local** (default) — spawns Redis + `bench serve` against the bundled SQLite
+  site and loads it from loopback.
+- **Remote** — a thin client: no local backend; loads `<server_url>/books` from
+  a hosted Frappe site. Selected via `BOOKS_SERVER_URL` or `config.json`.
+
 ## Network
 
 The Flatpak requests network access because WebKitGTK's network process

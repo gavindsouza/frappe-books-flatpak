@@ -2,11 +2,11 @@
 
 [![Build Flatpak](https://github.com/gavindsouza/frappe-books-flatpak/actions/workflows/build.yml/badge.svg)](https://github.com/gavindsouza/frappe-books-flatpak/actions/workflows/build.yml)
 
-Frappe Books as a self-contained Linux desktop app. The modern Books interface
-— built on [Frappe](https://github.com/frappe/frappe),
-[frappe-ui](https://github.com/frappe/frappe-ui) and friends — runs locally
-inside a Flatpak, with its own bundled backend and a single-file SQLite
-database. No server to set up.
+Frappe Books as a Linux desktop app. The modern Books interface — built on
+[Frappe](https://github.com/frappe/frappe),
+[frappe-ui](https://github.com/frappe/frappe-ui) and friends — runs inside a
+Flatpak, either self-contained (a bundled backend and a single-file SQLite
+database) or as a thin client to a hosted Frappe server.
 
 > This is a packaging approach, not a fork. A Tauri shell supervises a bundled
 > Frappe/bench environment, so the same method can bring other Frappe-framework
@@ -45,6 +45,26 @@ The app only ever talks to its bundled backend on localhost. (The Flatpak
 requests network access because WebKitGTK's network process needs it to render
 the local UI.)
 
+## Local or hosted
+
+By default the app is self-contained: bundled backend, SQLite, no server. It can
+also run as a thin client to a hosted Frappe site (whose database may be SQLite,
+MariaDB or PostgreSQL) — set a server URL and it loads that site instead of
+starting a local backend:
+
+```bash
+BOOKS_SERVER_URL=https://books.example.com flatpak run io.frappe.Books
+```
+
+or create `~/.var/app/io.frappe.Books/config.json`:
+
+```json
+{ "server_url": "https://books.example.com" }
+```
+
+You log in to the hosted site normally. See
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md) for the lookup order.
+
 ## Your data
 
 The site lives in the app's data directory:
@@ -58,13 +78,10 @@ also export and import the database through the desktop file chooser.
 
 ### More than one device
 
-The database is a plain SQLite file, but SQLite is **not** safe on network
-filesystems (S3, EFS, NFS) with more than one writer — file locking is
-unreliable there and concurrent writes can corrupt the database. For a
-proof-of-concept you can sync the file between devices while the app is closed,
-or run a single backend and point several app shells at it. Genuine
-multi-device, multi-writer use needs a client/server database (Postgres or
-MariaDB), which this packaging does not provide.
+Point several devices at one hosted Frappe site (see
+[Local or hosted](#local-or-hosted)) and they share the same data. Do not put
+the local SQLite file on a network filesystem (S3, EFS, NFS) — file locking is
+unreliable there and concurrent writers can corrupt it.
 
 ## Updating
 
