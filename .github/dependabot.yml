@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /tauri/books-app/src-tauri
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /tauri/books-app
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
