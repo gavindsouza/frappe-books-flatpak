@@ -89,6 +89,11 @@ REDIS_BIN="$REDIS_BUILD/redis-$REDIS_VERSION/src/redis-server"
 "$REDIS_BIN" --version || { echo "error: built redis-server does not run" >&2; exit 1; }
 mkdir -p "$APP_PREFIX/bin"
 install -Dm755 "$REDIS_BIN" "$APP_PREFIX/bin/redis-server"
+
+# git is required by GitPython, which bench imports at startup; the runtime
+# provides git's libraries (libpcre2, zlib, libc) but not the binary itself.
+install -Dm755 "$(command -v git)" "$APP_PREFIX/bin/git"
+
 export PATH="$APP_PREFIX/bin:$PATH"
 
 # --- Bench workspace -------------------------------------------------------
