@@ -53,7 +53,7 @@ jobs:
         run: tar -C dist -cf dist.tar backend books-app
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dist
           path: dist.tar
@@ -85,7 +85,7 @@ jobs:
           manifest-path: flatpak/io.frappe.Books.yml
 
       - name: Upload bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: flatpak
           path: io.frappe.Books.flatpak
