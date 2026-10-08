@@ -109,5 +109,5 @@ jobs:
             ```
 
             The app runs entirely locally: a bundled Frappe backend, a
-            single-file SQLite database and Redis, with no network access.
-            See the README for details.
+            single-file SQLite database and Redis. It only talks to its
+            bundled backend on localhost. See the README for details.

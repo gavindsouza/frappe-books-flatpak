@@ -32,5 +32,6 @@ Python runtime                          /app/python  (uv, python-build-standalon
 
 ## Network
 
-The Flatpak requests no network permission (no `--share=network`); the backend
-and the shell communicate over the sandbox loopback only.
+The Flatpak requests network access because WebKitGTK's network process
+requires it to reach the bundled backend on loopback. The app itself only talks
+to `127.0.0.1` and makes no external connections.

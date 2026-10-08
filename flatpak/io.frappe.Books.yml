@@ -12,7 +12,9 @@ build-options:
   no-debuginfo: true
 
 finish-args:
-  # Pure local application: loopback only, no external network permission.
+  # WebKitGTK's network process needs the network permission even to reach the
+  # bundled backend on 127.0.0.1; without it the window loads nothing.
+  - --share=network
   - --socket=wayland
   - --socket=fallback-x11
   - --share=ipc

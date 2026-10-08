@@ -6,7 +6,7 @@ Frappe Books as a self-contained Linux desktop app. The modern Books interface
 — built on [Frappe](https://github.com/frappe/frappe),
 [frappe-ui](https://github.com/frappe/frappe-ui) and friends — runs locally
 inside a Flatpak, with its own bundled backend and a single-file SQLite
-database. No server to set up, no network required.
+database. No server to set up.
 
 > This is a packaging approach, not a fork. A Tauri shell supervises a bundled
 > Frappe/bench environment, so the same method can bring other Frappe-framework
@@ -41,7 +41,9 @@ its local site, and opens Books directly — no login and no setup wizard.
 - **Database** — SQLite, a single file per site (plus a search index).
 - **Cache** — a private Redis, bundled and started with the app.
 
-The Flatpak requests no network permission; everything runs on localhost.
+The app only ever talks to its bundled backend on localhost. (The Flatpak
+requests network access because WebKitGTK's network process needs it to render
+the local UI.)
 
 ## Your data
 
