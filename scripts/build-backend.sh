@@ -73,6 +73,24 @@ log "Using interpreter: $PYTHON_BIN"
 "$PYTHON_BIN" -c 'import sys; print("python ok:", sys.version.split()[0])' \
   || { echo "error: bundled Python $PYTHON_VERSION does not run" >&2; exit 1; }
 
+# --- Redis (built from source) ---------------------------------------------
+# The distro redis-server links liblzf, which the Flatpak runtime does not
+# provide, so build a self-contained binary. bench also shells out to
+# `redis-server --version` during `bench init`, so it must be on PATH early.
+log "Building Redis $REDIS_VERSION from source"
+REDIS_BUILD="$DIST_DIR/.redis-build"
+rm -rf "$REDIS_BUILD"
+mkdir -p "$REDIS_BUILD"
+curl -fsSL "https://download.redis.io/releases/redis-$REDIS_VERSION.tar.gz" \
+  -o "$REDIS_BUILD/redis.tar.gz"
+tar -C "$REDIS_BUILD" -xzf "$REDIS_BUILD/redis.tar.gz"
+make -C "$REDIS_BUILD/redis-$REDIS_VERSION" -j"$(nproc)" MALLOC=libc >/dev/null
+REDIS_BIN="$REDIS_BUILD/redis-$REDIS_VERSION/src/redis-server"
+"$REDIS_BIN" --version || { echo "error: built redis-server does not run" >&2; exit 1; }
+mkdir -p "$APP_PREFIX/bin"
+install -Dm755 "$REDIS_BIN" "$APP_PREFIX/bin/redis-server"
+export PATH="$APP_PREFIX/bin:$PATH"
+
 # --- Bench workspace -------------------------------------------------------
 if [ ! -d "$BENCH_DIR" ]; then
   log "Initializing bench at $BENCH_DIR"
@@ -144,20 +162,6 @@ if [ ! -d "$BENCH_CLI_DIR/env" ]; then
 fi
 uv pip install --python "$BENCH_CLI_DIR/env/bin/python" --upgrade frappe-bench
 
-# --- Redis (built from source) ---------------------------------------------
-# The distro redis-server links liblzf, which the Flatpak runtime does not
-# provide, so build a self-contained binary instead.
-log "Building Redis $REDIS_VERSION from source"
-REDIS_BUILD="$DIST_DIR/.redis-build"
-rm -rf "$REDIS_BUILD"
-mkdir -p "$REDIS_BUILD"
-curl -fsSL "https://download.redis.io/releases/redis-$REDIS_VERSION.tar.gz" \
-  -o "$REDIS_BUILD/redis.tar.gz"
-tar -C "$REDIS_BUILD" -xzf "$REDIS_BUILD/redis.tar.gz"
-make -C "$REDIS_BUILD/redis-$REDIS_VERSION" -j"$(nproc)" MALLOC=libc >/dev/null
-REDIS_BIN="$REDIS_BUILD/redis-$REDIS_VERSION/src/redis-server"
-"$REDIS_BIN" --version || { echo "error: built redis-server does not run" >&2; exit 1; }
-
 # --- Assemble the distribution bundle --------------------------------------
 log "Pruning build-only files"
 find "$BENCH_DIR/apps" -maxdepth 3 -name node_modules -type d -prune -exec rm -rf {} + 2>/dev/null || true
@@ -170,7 +174,6 @@ mkdir -p "$BACKEND_OUT"
 
 # Binaries live under the prefix too, so the bundle mirrors the runtime /app tree.
 mkdir -p "$APP_PREFIX/bin"
-install -Dm755 "$REDIS_BIN" "$APP_PREFIX/bin/redis-server"
 
 cat > "$APP_PREFIX/bin/bench" <<EOF
 #!/bin/sh

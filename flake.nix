@@ -14,6 +14,7 @@
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             git
+            curl
             uv
             nodejs_22
             python3
