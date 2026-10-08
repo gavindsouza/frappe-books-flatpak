@@ -11,10 +11,7 @@ use tauri::{Manager, RunEvent, State, Url, WebviewWindowBuilder};
 
 const SITE: &str = "site1";
 const PORT: u16 = 8020;
-const REDIS_CONFS: [(&str, u16); 2] = [
-    ("config/redis_queue.conf", 11000),
-    ("config/redis_cache.conf", 13000),
-];
+const REDIS_PORTS: [u16; 2] = [11000, 13000];
 const READY_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_LOG_SIZE: u64 = 10 * 1024 * 1024; // 10MB
 const LOG_BACKUPS: usize = 5;
@@ -386,6 +383,62 @@ fn migrate_site_if_needed(bench_dir: &Path, bench_bin: &str, site: &str) {
     let _ = cmd.status();
 }
 
+fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let to = dst.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_dir_all(&entry.path(), &to)?;
+        } else if file_type.is_symlink() {
+            let target = fs::read_link(entry.path())?;
+            #[cfg(unix)]
+            let _ = std::os::unix::fs::symlink(target, &to);
+        } else {
+            fs::copy(entry.path(), &to)?;
+        }
+    }
+    Ok(())
+}
+
+/// The bundled bench under /app is immutable, so build a writable workspace in
+/// the app data dir on first run: symlink the immutable parts (env, apps) and
+/// copy the mutable parts (sites, logs, config).
+fn ensure_workspace(data_dir: &Path, logger: &Logger) -> PathBuf {
+    let ws = data_dir.join("bench");
+    if ws.join("sites").exists() {
+        return ws;
+    }
+    let src = PathBuf::from(env_or("BOOKS_BENCH_SRC", "/app/books/bench"));
+    logger.log(&format!(
+        "seeding workspace {} from {}",
+        ws.display(),
+        src.display()
+    ));
+    let _ = fs::remove_dir_all(&ws);
+    let _ = fs::create_dir_all(&ws);
+
+    if let Ok(entries) = fs::read_dir(&src) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            match name.as_str() {
+                "sites" | "logs" | "config" => continue,
+                _ => {
+                    #[cfg(unix)]
+                    let _ = std::os::unix::fs::symlink(entry.path(), ws.join(&name));
+                }
+            }
+        }
+    }
+
+    let _ = copy_dir_all(&src.join("sites"), &ws.join("sites"));
+    let _ = copy_dir_all(&src.join("config"), &ws.join("config"));
+    let _ = fs::create_dir_all(ws.join("logs"));
+    let _ = fs::create_dir_all(ws.join("config").join("pids"));
+    ws
+}
+
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let log_dir = app.path().app_log_dir()?;
     fs::create_dir_all(&log_dir)?;
@@ -395,40 +448,46 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     launcher.watch_children();
     app.manage(launcher.clone());
 
-    let bench_dir = PathBuf::from(env_or(
-        "BOOKS_BENCH_DIR",
-        "/app/books/bench",
-    ));
-    let bench_bin = env_or(
-        "BOOKS_BENCH_BIN",
-        "bench",
-    );
+    // The bundled bench under /app is immutable, so run it from a writable
+    // workspace in the app data dir (seeded on first run).
+    let data_dir = app.path().app_data_dir()?;
+    fs::create_dir_all(&data_dir)?;
+    let bench_dir = match std::env::var("BOOKS_BENCH_DIR") {
+        Ok(dir) => PathBuf::from(dir),
+        Err(_) => ensure_workspace(&data_dir, &logger),
+    };
+    let bench_bin = env_or("BOOKS_BENCH_BIN", "bench");
     let redis_bin = env_or("BOOKS_REDIS_BIN", "/app/bin/redis-server");
     let admin_user = env_or("BOOKS_ADMIN_USER", "Administrator");
     let admin_pass = env_or("BOOKS_ADMIN_PASSWORD", "admin");
+    logger.log(&format!("bench dir: {}", bench_dir.display()));
 
-    if !bench_dir.exists() {
-        logger.log(&format!("WARNING: bench_dir does not exist: {}", bench_dir.display()));
-    }
-
-    ensure_site_if_missing(&bench_dir, &bench_bin, SITE);
-    migrate_site_if_needed(&bench_dir, &bench_bin, SITE);
-
+    // Redis must be up before any bench command that touches cache or session.
     launcher.set_phase("starting redis");
-    for (conf, port) in REDIS_CONFS {
+    let redis_dir = bench_dir.join("redis");
+    let _ = fs::create_dir_all(&redis_dir);
+    for port in REDIS_PORTS {
         if port_open(port) {
             logger.log(&format!("redis {port}: already listening, reusing"));
             continue;
         }
-        let conf_path = bench_dir.join(conf);
-        if !conf_path.exists() {
-            logger.log(&format!("redis {port}: conf not found {}", conf_path.display()));
-            continue;
-        }
         let mut cmd = Command::new(&redis_bin);
-        cmd.arg(&conf_path.to_string_lossy().to_string())
-            .arg("--port")
+        cmd.arg("--port")
             .arg(port.to_string())
+            .arg("--bind")
+            .arg("127.0.0.1")
+            .arg("--dir")
+            .arg(&redis_dir)
+            .arg("--dbfilename")
+            .arg(format!("redis_{port}.rdb"))
+            .arg("--save")
+            .arg("")
+            .arg("--appendonly")
+            .arg("no")
+            .arg("--pidfile")
+            .arg(redis_dir.join(format!("redis_{port}.pid")))
+            .arg("--logfile")
+            .arg(log_dir.join(format!("redis_{port}.log")))
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         match spawn_in_group(&mut cmd) {
@@ -455,6 +514,9 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             Err(e) => logger.log(&format!("redis {port}: spawn failed: {e}")),
         }
     }
+
+    ensure_site_if_missing(&bench_dir, &bench_bin, SITE);
+    migrate_site_if_needed(&bench_dir, &bench_bin, SITE);
 
     launcher.set_phase("starting bench serve");
     let bench_spawned = if port_open(PORT) {
