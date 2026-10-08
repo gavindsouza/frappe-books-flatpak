@@ -17,6 +17,9 @@ finish-args:
   - --socket=fallback-x11
   - --share=ipc
   - --device=dri
+  # Frappe preloads the MariaDB driver by default, which needs libmysqlclient
+  # (absent from the runtime). The site is SQLite, so preload that instead.
+  - --env=FRAPPE_PRELOAD_DATABASE_DRIVERS=sqlite
   - --talk-name=org.freedesktop.portal.FileChooser
   - --talk-name=org.freedesktop.portal.OpenURI
   - --talk-name=org.freedesktop.portal.NetworkMonitor
